@@ -457,6 +457,8 @@ void make_default_theme() {
 	t->set_stylebox("completion","TextEdit", make_stylebox( tree_bg_png,3,3,3,3) );
 
 	t->set_icon("tab","TextEdit", make_icon( tab_png) );
+	t->set_icon("line_unfolded","TextEdit",make_icon(arrow_down_png));
+	t->set_icon("line_folded","TextEdit",make_icon(arrow_right_png));
 
 	t->set_font("font","TextEdit", default_font );
 

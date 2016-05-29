@@ -589,6 +589,7 @@ void ScriptTextEditor::_bind_methods() {
 
 ScriptTextEditor::ScriptTextEditor() {
 	get_text_edit()->set_breakpoint_gutter_width(12);
+	get_text_edit()->set_code_folding_enabled(true);
 }
 
 /*** SCRIPT EDITOR ******/
@@ -1331,6 +1332,10 @@ void ScriptEditor::_menu_option(int p_option) {
 				tx->end_complex_operation();
 				tx->update();
 
+			} break;
+			case EDIT_FOLD_LINE: {
+				int line = current->get_text_edit()->cursor_get_line();
+				current->get_text_edit()->fold_lines(line);
 			} break;
 			case EDIT_TOGGLE_COMMENT: {
 
@@ -2584,6 +2589,8 @@ ScriptEditor::ScriptEditor(EditorNode *p_editor) {
 	edit_menu->get_popup()->add_item(TTR("Trim Trailing Whitespace"), EDIT_TRIM_TRAILING_WHITESAPCE, KEY_MASK_CTRL|KEY_MASK_ALT|KEY_T);
 	edit_menu->get_popup()->add_item(TTR("Auto Indent"),EDIT_AUTO_INDENT,KEY_MASK_CMD|KEY_I);
 	edit_menu->get_popup()->connect("item_pressed", this,"_menu_option");
+	edit_menu->get_popup()->add_separator();
+	edit_menu->get_popup()->add_item(TTR("Fold Selection"),EDIT_FOLD_LINE, KEY_MASK_CTRL|KEY_H);
 
 
 	search_menu = memnew( MenuButton );

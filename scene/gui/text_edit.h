@@ -71,6 +71,8 @@ class TextEdit : public Control  {
 	struct Cache {
 
 		Ref<Texture> tab_icon;
+		Ref<Texture> line_unfolded_icon;
+		Ref<Texture> line_folded_icon;
 		Ref<StyleBox> style_normal;
 		Ref<StyleBox> style_focus;
 		Ref<Font> font;
@@ -95,6 +97,7 @@ class TextEdit : public Control  {
 		int line_spacing;
 		int line_number_w;
 		int breakpoint_gutter_width;
+		int code_folding_gutter_width;
 		Size2 size;
 	} cache;
 
@@ -120,6 +123,8 @@ class TextEdit : public Control  {
 		       int width_cache : 24;
 		       bool marked : 1;
 		       bool breakpoint : 1;
+		       bool foldable : 1;
+		       bool folded : 1;
 		       Map<int,ColorRegionInfo> region_info;
 		       String data;
 	       };
@@ -145,6 +150,10 @@ class TextEdit : public Control  {
 		bool is_marked(int p_line) const { return text[p_line].marked; }
 		void set_breakpoint(int p_line,bool p_breakpoint) { text[p_line].breakpoint=p_breakpoint; }
 		bool is_breakpoint(int p_line) const { return text[p_line].breakpoint; }
+		void set_foldable(int p_line,bool p_foldable) { text[p_line].foldable=p_foldable; }
+		bool is_foldable(int p_line) const { return text[p_line].foldable; }
+		void set_folded(int p_line,bool p_folded) { text[p_line].folded=p_folded; }
+		bool is_folded(int p_line) const { return text[p_line].folded; }
 		void insert(int p_at,const String& p_text);
 		void remove(int p_at);
 		int size() const { return text.size(); }
@@ -214,6 +223,12 @@ class TextEdit : public Control  {
 	bool syntax_coloring;
 	int tab_size;
 
+	bool code_folding_enabled;
+	int code_folding_gutter_width;
+	int folded_lines;
+	int total_folded_lines;
+	Vector<int> folded_sections;
+
 	Timer *caret_blink_timer;
 	bool caret_blink_enabled;
 	bool draw_caret;
@@ -276,6 +291,12 @@ class TextEdit : public Control  {
 
 	void _scroll_lines_up();
 	void _scroll_lines_down();
+
+	int _get_next_unfolded_line_up(int p_line) const;
+	int _get_next_unfolded_line_down(int p_line);
+	int _get_indentation_length(int p_start_line);
+	int _get_line_indenation_level(int p_line) const;
+	bool _is_line_empty(int p_line) const;
 
 //	void mouse_motion(const Point& p_pos, const Point& p_rel, int p_button_mask);
 	Size2 get_minimum_size();
@@ -363,6 +384,11 @@ public:
 	void set_line_as_marked(int p_line,bool p_marked);
 	void set_line_as_breakpoint(int p_line,bool p_breakpoint);
 	bool is_line_set_as_breakpoint(int p_line) const;
+	void fold_lines(int p_line);
+	void set_line_as_foldable(int p_line,bool p_foldable);
+	bool is_line_foldable(int p_line) const;
+	void set_line_as_folded(int p_line,bool p_folded);
+	bool is_line_folded(int p_line) const;
 	void get_breakpoints(List<int> *p_breakpoints) const;
 	String get_text();
 	String get_line(int line) const;
@@ -388,6 +414,9 @@ public:
 		callhint_offset = offset;
 	}
 	void set_auto_indent(bool p_auto_indent);
+
+	void set_code_folding_enabled(bool p_enabled);
+	bool get_is_code_folding_enabled() const;
 
 	void cursor_set_column(int p_col, bool p_adjust_viewport=true);
 	void cursor_set_line(int p_row, bool p_adjust_viewport=true);
