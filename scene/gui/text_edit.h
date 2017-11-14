@@ -39,12 +39,6 @@ class TextEdit : public Control {
 
 	GDCLASS(TextEdit, Control);
 
-	struct Cursor {
-		int last_fit_x;
-		int line, column; ///< cursor
-		int x_ofs, line_ofs;
-	} cursor;
-
 	struct Selection {
 
 		enum Mode {
@@ -67,8 +61,14 @@ class TextEdit : public Control {
 		int to_line, to_column;
 
 		bool shiftclick_left;
+	};
 
-	} selection;
+	struct Cursor {
+		int last_fit_x;
+		int line, column; ///< cursor
+		int x_ofs, line_ofs;
+		Selection selection;
+	};
 
 	struct Cache {
 
@@ -185,6 +185,7 @@ class TextEdit : public Control {
 		uint32_t version;
 		bool chain_forward;
 		bool chain_backward;
+		Vector<Cursor> carets;
 	};
 
 	String ime_text;
@@ -232,6 +233,8 @@ class TextEdit : public Control {
 	int indent_size;
 	String space_indent;
 
+	Vector<Cursor> carets;
+	int main_caret;
 	Timer *caret_blink_timer;
 	bool caret_blink_enabled;
 	bool draw_caret;
@@ -357,12 +360,12 @@ protected:
 
 	void _insert_text(int p_line, int p_char, const String &p_text, int *r_end_line = NULL, int *r_end_char = NULL);
 	void _remove_text(int p_from_line, int p_from_column, int p_to_line, int p_to_column);
-	void _insert_text_at_cursor(const String &p_text);
+	void _insert_text_at_cursor(const String &p_text, int p_caret = -1);
 	void _gui_input(const Ref<InputEvent> &p_gui_input);
 	void _notification(int p_what);
 
 	void _consume_pair_symbol(CharType ch);
-	void _consume_backspace_for_pair_symbol(int prev_line, int prev_column);
+	void _consume_backspace_for_pair_symbol(int prev_line, int prev_column, int p_caret = -1);
 
 	static void _bind_methods();
 
@@ -408,7 +411,8 @@ public:
 	String get_text();
 	String get_line(int line) const;
 	void set_line(int line, String new_text);
-	void backspace_at_cursor();
+	void backspace_at_cursor(int p_caret = -1);
+	void backspace_at_all_cursors();
 
 	void indent_selection_left();
 	void indent_selection_right();
@@ -432,11 +436,12 @@ public:
 
 	void center_viewport_to_cursor();
 
-	void cursor_set_column(int p_col, bool p_adjust_viewport = true);
-	void cursor_set_line(int p_row, bool p_adjust_viewport = true);
+	void cursor_set_column(int p_col, bool p_adjust_viewport = true, int p_caret = -1);
+	void cursor_set_line(int p_row, bool p_adjust_viewport = true, int p_caret = -1);
+	void remove_secondary_cursors();
 
-	int cursor_get_column() const;
-	int cursor_get_line() const;
+	int cursor_get_column(int p_caret = -1) const;
+	int cursor_get_line(int p_caret = -1) const;
 
 	bool cursor_get_blink_enabled() const;
 	void cursor_set_blink_enabled(const bool p_enabled);
@@ -462,8 +467,9 @@ public:
 	void copy();
 	void paste();
 	void select_all();
-	void select(int p_from_line, int p_from_column, int p_to_line, int p_to_column);
-	void deselect();
+	void select(int p_from_line, int p_from_column, int p_to_line, int p_to_column, int p_caret = -1);
+	void deselect(int p_caret = -1);
+	void deselect_all();
 	void swap_lines(int line1, int line2);
 
 	void set_search_text(const String &p_search_text);
@@ -472,14 +478,22 @@ public:
 
 	void set_highlight_all_occurrences(const bool p_enabled);
 	bool is_highlight_all_occurrences_enabled() const;
-	bool is_selection_active() const;
-	int get_selection_from_line() const;
-	int get_selection_from_column() const;
-	int get_selection_to_line() const;
-	int get_selection_to_column() const;
-	String get_selection_text() const;
+	bool is_selection_active(int p_caret = -1) const;
+	int get_selection_from_line(int p_caret = -1) const;
+	int get_selection_from_column(int p_caret = -1) const;
+	int get_selection_to_line(int p_caret = -1) const;
+	int get_selection_to_column(int p_caret = -1) const;
+	String get_selection_text(int p_caret = -1) const;
 
-	String get_word_under_cursor() const;
+	bool is_block_selection_active() const;
+	int get_block_selection_from_line() const;
+	int get_block_selection_from_column() const;
+	int get_block_selection_to_line() const;
+	int get_block_selection_to_column() const;
+	String get_block_selection_text() const;
+	String get_words_under_cursors() const;
+
+	String get_word_under_cursor(int p_caret = -1) const;
 	String get_word_at_pos(const Vector2 &p_pos) const;
 
 	bool search(const String &p_key, uint32_t p_search_flags, int p_from_line, int p_from_column, int &r_line, int &r_column) const;
