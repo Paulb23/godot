@@ -556,7 +556,6 @@ void TextEdit::_notification(int p_what) {
 			}
 		} break;
 		case NOTIFICATION_DRAW: {
-
 			if ((!has_focus() && !menu->has_focus()) || !window_has_focus) {
 				draw_caret = false;
 			}
@@ -619,43 +618,9 @@ void TextEdit::_notification(int p_what) {
 			Color color = cache.font_color;
 			color.a *= readonly_alpha;
 
-			int in_region = -1;
-
 			if (syntax_coloring) {
-
 				if (cache.background_color.a > 0.01) {
-
 					VisualServer::get_singleton()->canvas_item_add_rect(ci, Rect2(Point2i(), get_size()), cache.background_color);
-				}
-				//compute actual region to start (may be inside say, a comment).
-				//slow in very large documents :( but ok for source!
-
-				for (int i = 0; i < cursor.line_ofs; i++) {
-
-					const Map<int, Text::ColorRegionInfo> &cri_map = text.get_color_region_info(i);
-
-					if (in_region >= 0 && color_regions[in_region].line_only) {
-						in_region = -1; //reset regions that end at end of line
-					}
-
-					for (const Map<int, Text::ColorRegionInfo>::Element *E = cri_map.front(); E; E = E->next()) {
-
-						const Text::ColorRegionInfo &cri = E->get();
-
-						if (in_region == -1) {
-
-							if (!cri.end) {
-
-								in_region = cri.region;
-							}
-						} else if (in_region == cri.region && !color_regions[cri.region].line_only) { //ignore otherwise
-
-							if (cri.end || color_regions[cri.region].eq) {
-
-								in_region = -1;
-							}
-						}
-					}
 				}
 			}
 
@@ -804,7 +769,6 @@ void TextEdit::_notification(int p_what) {
 				}
 			}
 
-			int deregion = 0; //force it to clear inrgion
 			Point2 cursor_pos;
 
 			// get the highlighted words
@@ -848,19 +812,12 @@ void TextEdit::_notification(int p_what) {
 				if (smooth_scroll_enabled)
 					ofs_y -= ((v_scroll->get_value() - get_line_scroll_pos()) * get_row_height());
 
-				bool prev_is_char = false;
-				bool prev_is_number = false;
-				bool in_keyword = false;
 				bool underlined = false;
-				bool in_word = false;
-				bool in_function_name = false;
-				bool in_member_variable = false;
-				bool is_hex_notation = false;
-				Color keyword_color;
 
 				// check if line contains highlighted word
 				int highlighted_text_col = -1;
 				int search_text_col = -1;
+				int highlighted_word_col = -1;
 
 				if (!search_text.empty())
 					search_text_col = _get_column_pos_of_word(search_text, str, search_flags, 0);
@@ -868,7 +825,11 @@ void TextEdit::_notification(int p_what) {
 				if (highlighted_text.length() != 0 && highlighted_text != search_text)
 					highlighted_text_col = _get_column_pos_of_word(highlighted_text, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, 0);
 
-				const Map<int, Text::ColorRegionInfo> &cri_map = text.get_color_region_info(line);
+				if (select_identifiers_enabled && highlighted_word.length() != 0) {
+					if (_is_char(highlighted_word[0])) {
+						highlighted_word_col = _get_column_pos_of_word(highlighted_word, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, 0);
+					}
+				}
 
 				if (text.is_marked(line)) {
 
@@ -936,170 +897,28 @@ void TextEdit::_notification(int p_what) {
 
 					cache.font->draw(ci, Point2(cache.style_normal->get_margin(MARGIN_LEFT) + cache.breakpoint_gutter_width + ofs_x, ofs_y + cache.font->get_ascent()), fc, cache.line_number_color);
 				}
+
 				//loop through characters in one line
+				Map<int, HighlighterInfo> color_map;
+				if (syntax_coloring) {
+					color_map = _get_line_syntax_highlighting(line);
+				}
+
+				// ensure we at least use the a font color
+				Color current_color = cache.font_color;
+				if (readonly) {
+					current_color.a *= readonly_alpha;
+				}
 				for (int j = 0; j < str.length(); j++) {
 
-					//look for keyword
-
-					if (deregion > 0) {
-						deregion--;
-						if (deregion == 0)
-							in_region = -1;
-					}
-					if (syntax_coloring && deregion == 0) {
-
-						color = cache.font_color; //reset
-						color.a *= readonly_alpha;
-						//find keyword
-						bool is_char = _is_text_char(str[j]);
-						bool is_symbol = _is_symbol(str[j]);
-						bool is_number = _is_number(str[j]);
-
-						if (j == 0 && in_region >= 0 && color_regions[in_region].line_only) {
-							in_region = -1; //reset regions that end at end of line
-						}
-
-						// allow ABCDEF in hex notation
-						if (is_hex_notation && (_is_hex_symbol(str[j]) || is_number)) {
-							is_number = true;
-						} else {
-							is_hex_notation = false;
-						}
-
-						// check for dot or underscore or 'x' for hex notation in floating point number
-						if ((str[j] == '.' || str[j] == 'x' || str[j] == '_') && !in_word && prev_is_number && !is_number) {
-							is_number = true;
-							is_symbol = false;
-							is_char = false;
-
-							if (str[j] == 'x' && str[j - 1] == '0') {
-								is_hex_notation = true;
+					if (syntax_coloring) {
+						if (color_map.has(j)) {
+							current_color = color_map[j].color;
+							if (readonly) {
+								current_color.a *= readonly_alpha;
 							}
 						}
-
-						if (!in_word && _is_char(str[j]) && !is_number) {
-							in_word = true;
-						}
-
-						if ((in_keyword || in_word) && !is_hex_notation) {
-							is_number = false;
-						}
-
-						if (is_symbol && str[j] != '.' && in_word) {
-							in_word = false;
-						}
-
-						if (is_symbol && cri_map.has(j)) {
-
-							const Text::ColorRegionInfo &cri = cri_map[j];
-
-							if (in_region == -1) {
-
-								if (!cri.end) {
-
-									in_region = cri.region;
-								}
-							} else if (in_region == cri.region && !color_regions[cri.region].line_only) { //ignore otherwise
-
-								if (cri.end || color_regions[cri.region].eq) {
-
-									deregion = color_regions[cri.region].eq ? color_regions[cri.region].begin_key.length() : color_regions[cri.region].end_key.length();
-								}
-							}
-						}
-
-						if (!is_char) {
-							in_keyword = false;
-							underlined = false;
-						}
-
-						if (in_region == -1 && !in_keyword && is_char && !prev_is_char) {
-
-							int to = j;
-							while (to < str.length() && _is_text_char(str[to]))
-								to++;
-
-							uint32_t hash = String::hash(&str[j], to - j);
-							StrRange range(&str[j], to - j);
-
-							const Color *col = keywords.custom_getptr(range, hash);
-
-							if (!col) {
-								col = member_keywords.custom_getptr(range, hash);
-
-								if (col) {
-									for (int k = j - 1; k >= 0; k--) {
-										if (str[k] == '.') {
-											col = NULL; //member indexing not allowed
-											break;
-										} else if (str[k] > 32) {
-											break;
-										}
-									}
-								}
-							}
-
-							if (col) {
-
-								in_keyword = true;
-								keyword_color = *col;
-							}
-
-							if (select_identifiers_enabled && highlighted_word != String()) {
-								if (highlighted_word == range) {
-									underlined = true;
-								}
-							}
-						}
-
-						if (!in_function_name && in_word && !in_keyword) {
-
-							int k = j;
-							while (k < str.length() && !_is_symbol(str[k]) && str[k] != '\t' && str[k] != ' ') {
-								k++;
-							}
-
-							// check for space between name and bracket
-							while (k < str.length() && (str[k] == '\t' || str[k] == ' ')) {
-								k++;
-							}
-
-							if (str[k] == '(') {
-								in_function_name = true;
-							}
-						}
-
-						if (!in_function_name && !in_member_variable && !in_keyword && !is_number && in_word) {
-							int k = j;
-							while (k > 0 && !_is_symbol(str[k]) && str[k] != '\t' && str[k] != ' ') {
-								k--;
-							}
-
-							if (str[k] == '.') {
-								in_member_variable = true;
-							}
-						}
-
-						if (is_symbol) {
-							in_function_name = false;
-							in_member_variable = false;
-						}
-
-						if (in_region >= 0)
-							color = color_regions[in_region].color;
-						else if (in_keyword)
-							color = keyword_color;
-						else if (in_member_variable)
-							color = cache.member_variable_color;
-						else if (in_function_name)
-							color = cache.function_color;
-						else if (is_symbol)
-							color = cache.symbol_color;
-						else if (is_number)
-							color = cache.number_color;
-
-						prev_is_char = is_char;
-						prev_is_number = is_number;
+						color = current_color;
 					}
 					int char_w;
 
@@ -1204,6 +1023,13 @@ void TextEdit::_notification(int p_what) {
 								VisualServer::get_singleton()->canvas_item_add_rect(ci, Rect2(Point2i(char_ofs + char_margin + ofs_x, ofs_y), Size2i(char_w, get_row_height())), cache.word_highlighted_color);
 							}
 						}
+					}
+
+					if (highlighted_word_col != -1) {
+						if (j > highlighted_word_col + highlighted_word.length()) {
+							highlighted_word_col = _get_column_pos_of_word(highlighted_word, str, SEARCH_MATCH_CASE | SEARCH_WHOLE_WORDS, j);
+						}
+						underlined = (j >= highlighted_word_col && j < highlighted_word_col + highlighted_word.length());
 					}
 
 					if (brace_matching_enabled) {
@@ -4150,6 +3976,23 @@ void TextEdit::_update_caches() {
 	cache.can_fold_icon = get_icon("GuiTreeArrowDown", "EditorIcons");
 	cache.folded_eol_icon = get_icon("GuiEllipsis", "EditorIcons");
 	text.set_font(cache.font);
+
+	if (syntax_highlighter) {
+		syntax_highlighter->_update_cache();
+	}
+}
+
+SyntaxHighlighter *TextEdit::_get_syntax_highlighting() {
+	return syntax_highlighter;
+}
+
+void TextEdit::_set_syntax_highlighting(SyntaxHighlighter *p_syntax_highlighter) {
+	syntax_highlighter = p_syntax_highlighter;
+	if (syntax_highlighter) {
+		syntax_highlighter->set_text_editor(this);
+		syntax_highlighter->_update_cache();
+	}
+	update();
 }
 
 void TextEdit::clear_colors() {
@@ -5744,6 +5587,7 @@ TextEdit::TextEdit() {
 	clear();
 	wrap = false;
 	set_focus_mode(FOCUS_ALL);
+	syntax_highlighter = NULL;
 	_update_caches();
 	cache.size = Size2(1, 1);
 	cache.row_height = 1;
@@ -5859,4 +5703,260 @@ TextEdit::TextEdit() {
 }
 
 TextEdit::~TextEdit() {
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+Map<int, TextEdit::HighlighterInfo> TextEdit::_get_line_syntax_highlighting(int p_line) {
+	if (syntax_highlighter != NULL) {
+		return syntax_highlighter->_get_line_syntax_highlighting(p_line);
+	}
+
+	Map<int, HighlighterInfo> color_map;
+
+	bool prev_is_char = false;
+	bool prev_is_number = false;
+	bool in_keyword = false;
+	bool in_word = false;
+	bool in_function_name = false;
+	bool in_member_variable = false;
+	bool is_hex_notation = false;
+	Color keyword_color;
+	Color color;
+
+	int in_region = -1;
+	int deregion = 0;
+
+	for (int i = 0; i < p_line; i++) {
+		const Map<int, TextEdit::Text::ColorRegionInfo> &cri_map = text.get_color_region_info(i);
+		if (in_region >= 0 && color_regions[in_region].line_only) {
+			in_region = -1;
+		}
+		for (const Map<int, TextEdit::Text::ColorRegionInfo>::Element *E = cri_map.front(); E; E = E->next()) {
+			const TextEdit::Text::ColorRegionInfo &cri = E->get();
+			if (in_region == -1) {
+				if (!cri.end) {
+					in_region = cri.region;
+				}
+			} else if (in_region == cri.region && !color_regions[cri.region].line_only) {
+				if (cri.end || color_regions[cri.region].eq) {
+					in_region = -1;
+				}
+			}
+		}
+	}
+
+	if (in_region >= 0 && color_regions[in_region].line_only) {
+		in_region = -1;
+	}
+
+	const Map<int, TextEdit::Text::ColorRegionInfo> &cri_map = text.get_color_region_info(p_line);
+	const String &str = text[p_line];
+	Color prev_color;
+	for (int j = 0; j < str.length(); j++) {
+		HighlighterInfo highlighter_info;
+
+		if (deregion > 0) {
+			deregion--;
+			if (deregion == 0) {
+				in_region = -1;
+			}
+		}
+
+		if (deregion != 0) {
+			if (color != prev_color) {
+				prev_color = color;
+				highlighter_info.color = color;
+				color_map[j] = highlighter_info;
+			}
+			continue;
+		}
+
+		color = cache.font_color;
+
+		bool is_char = _is_text_char(str[j]);
+		bool is_symbol = _is_symbol(str[j]);
+		bool is_number = _is_number(str[j]);
+
+		// allow ABCDEF in hex notation
+		if (is_hex_notation && (_is_hex_symbol(str[j]) || is_number)) {
+			is_number = true;
+		} else {
+			is_hex_notation = false;
+		}
+
+		// check for dot or underscore or 'x' for hex notation in floating point number
+		if ((str[j] == '.' || str[j] == 'x' || str[j] == '_') && !in_word && prev_is_number && !is_number) {
+			is_number = true;
+			is_symbol = false;
+			is_char = false;
+
+			if (str[j] == 'x' && str[j - 1] == '0') {
+				is_hex_notation = true;
+			}
+		}
+
+		if (!in_word && _is_char(str[j]) && !is_number) {
+			in_word = true;
+		}
+
+		if ((in_keyword || in_word) && !is_hex_notation) {
+			is_number = false;
+		}
+
+		if (is_symbol && str[j] != '.' && in_word) {
+			in_word = false;
+		}
+
+		if (is_symbol && cri_map.has(j)) {
+			const TextEdit::Text::ColorRegionInfo &cri = cri_map[j];
+
+			if (in_region == -1) {
+				if (!cri.end) {
+					in_region = cri.region;
+				}
+			} else if (in_region == cri.region && !color_regions[cri.region].line_only) { //ignore otherwise
+				if (cri.end || color_regions[cri.region].eq) {
+					deregion = color_regions[cri.region].eq ? color_regions[cri.region].begin_key.length() : color_regions[cri.region].end_key.length();
+				}
+			}
+		}
+
+		if (!is_char) {
+			in_keyword = false;
+		}
+
+		if (in_region == -1 && !in_keyword && is_char && !prev_is_char) {
+
+			int to = j;
+			while (to < str.length() && _is_text_char(str[to]))
+				to++;
+
+			uint32_t hash = String::hash(&str[j], to - j);
+			StrRange range(&str[j], to - j);
+
+			const Color *col = keywords.custom_getptr(range, hash);
+
+			if (!col) {
+				col = member_keywords.custom_getptr(range, hash);
+
+				if (col) {
+					for (int k = j - 1; k >= 0; k--) {
+						if (str[k] == '.') {
+							col = NULL; //member indexing not allowed
+							break;
+						} else if (str[k] > 32) {
+							break;
+						}
+					}
+				}
+			}
+
+			if (col) {
+				in_keyword = true;
+				keyword_color = *col;
+			}
+		}
+
+		if (!in_function_name && in_word && !in_keyword) {
+
+			int k = j;
+			while (k < str.length() && !_is_symbol(str[k]) && str[k] != '\t' && str[k] != ' ') {
+				k++;
+			}
+
+			// check for space between name and bracket
+			while (k < str.length() && (str[k] == '\t' || str[k] == ' ')) {
+				k++;
+			}
+
+			if (str[k] == '(') {
+				in_function_name = true;
+			}
+		}
+
+		if (!in_function_name && !in_member_variable && !in_keyword && !is_number && in_word) {
+			int k = j;
+			while (k > 0 && !_is_symbol(str[k]) && str[k] != '\t' && str[k] != ' ') {
+				k--;
+			}
+
+			if (str[k] == '.') {
+				in_member_variable = true;
+			}
+		}
+
+		if (is_symbol) {
+			in_function_name = false;
+			in_member_variable = false;
+		}
+
+		if (in_region >= 0)
+			color = color_regions[in_region].color;
+		else if (in_keyword)
+			color = keyword_color;
+		else if (in_member_variable)
+			color = cache.member_variable_color;
+		else if (in_function_name)
+			color = cache.function_color;
+		else if (is_symbol)
+			color = cache.symbol_color;
+		else if (is_number)
+			color = cache.number_color;
+
+		prev_is_char = is_char;
+		prev_is_number = is_number;
+
+		if (color != prev_color) {
+			prev_color = color;
+			highlighter_info.color = color;
+			color_map[j] = highlighter_info;
+		}
+	}
+
+	return color_map;
+}
+
+void SyntaxHighlighter::set_text_editor(TextEdit *p_text_editor) {
+	text_editor = p_text_editor;
+}
+
+TextEdit *SyntaxHighlighter::get_text_editor() {
+	return text_editor;
+}
+
+bool SyntaxHighlighter::_has_keyword_color(String p_keyword) {
+	return text_editor->keywords.has(p_keyword);
+}
+
+bool SyntaxHighlighter::_has_member_color(String p_member) {
+	return text_editor->member_keywords.has(p_member);
+}
+
+Color SyntaxHighlighter::_get_keyword_color(String p_keyword) {
+	return text_editor->keywords[p_keyword];
+}
+
+Color SyntaxHighlighter::_get_member_color(String p_member) {
+	return text_editor->member_keywords[p_member];
+}
+
+String SyntaxHighlighter::get_name() {
+	return "";
+}
+
+List<String> SyntaxHighlighter::get_supported_languages() {
+	List<String> langauges;
+	return langauges;
+}
+
+Map<int, TextEdit::HighlighterInfo> SyntaxHighlighter::_get_line_syntax_highlighting(int p_line) {
+	return Map<int, TextEdit::HighlighterInfo>();
+}
+
+void SyntaxHighlighter::_update_cache() {
+}
+
+SyntaxHighlighter *SyntaxHighlighter::create() {
+	return NULL;
 }

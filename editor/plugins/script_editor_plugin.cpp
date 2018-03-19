@@ -1778,6 +1778,20 @@ bool ScriptEditor::edit(const Ref<Script> &p_script, int p_line, int p_col, bool
 	}
 	ERR_FAIL_COND_V(!se, false);
 
+	bool highlighter_set = false;
+	for (int i = 0; i < syntax_highlighters.size(); i++) {
+		SyntaxHighlighter *highlighter = syntax_highlighters[i]->create();
+		se->add_syntax_highlighter(highlighter);
+
+		if (!highlighter_set) {
+			List<String> languages = highlighter->get_supported_languages();
+			if (languages.find(p_script->get_language()->get_name())) {
+				se->set_syntax_highlighter(highlighter);
+				highlighter_set = true;
+			}
+		}
+	}
+
 	tab_container->add_child(se);
 	se->set_edited_script(p_script);
 	se->set_tooltip_request_func("_get_debug_tooltip", this);
@@ -2492,6 +2506,11 @@ void ScriptEditor::_open_script_request(const String &p_path) {
 	if (script.is_valid()) {
 		script_editor->edit(script, false);
 	}
+}
+
+List<SyntaxHighlighter *> ScriptEditor::syntax_highlighters;
+void ScriptEditor::register_syntax_highlighter(SyntaxHighlighter *p_highlighter) {
+	syntax_highlighters.push_back(p_highlighter);
 }
 
 int ScriptEditor::script_editor_func_count = 0;

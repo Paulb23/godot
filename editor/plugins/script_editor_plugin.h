@@ -80,6 +80,9 @@ protected:
 	static void _bind_methods();
 
 public:
+	virtual void add_syntax_highlighter(SyntaxHighlighter *p_highlighter) = 0;
+	virtual void set_syntax_highlighter(SyntaxHighlighter *p_highlighter) = 0;
+
 	virtual void apply_code() = 0;
 	virtual Ref<Script> get_edited_script() const = 0;
 	virtual Vector<String> get_functions() = 0;
@@ -212,6 +215,8 @@ class ScriptEditor : public PanelContainer {
 
 	ToolButton *script_back;
 	ToolButton *script_forward;
+
+	static List<SyntaxHighlighter *> syntax_highlighters;
 
 	enum {
 		SCRIPT_EDITOR_FUNC_MAX = 32
@@ -398,6 +403,8 @@ public:
 
 	ScriptEditorDebugger *get_debugger() { return debugger; }
 	void set_live_auto_reload_running_scripts(bool p_enabled);
+
+	static void register_syntax_highlighter(SyntaxHighlighter *p_highlighter);
 
 	static void register_create_script_editor_function(CreateScriptEditorFunc p_func);
 	ScriptEditor(EditorNode *p_editor);

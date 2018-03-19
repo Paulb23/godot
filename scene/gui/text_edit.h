@@ -36,10 +36,18 @@
 #include "scene/gui/scroll_bar.h"
 #include "scene/main/timer.h"
 
+class SyntaxHighlighter;
+
 class TextEdit : public Control {
 
-	GDCLASS(TextEdit, Control);
+	GDCLASS(TextEdit, Control)
 
+public:
+	struct HighlighterInfo {
+		Color color;
+	};
+
+private:
 	struct Cursor {
 		int last_fit_x;
 		int line, column; ///< cursor
@@ -130,7 +138,6 @@ class TextEdit : public Control {
 			eq = begin_key == end_key;
 		}
 	};
-
 	class Text {
 	public:
 		struct ColorRegionInfo {
@@ -209,8 +216,12 @@ class TextEdit : public Control {
 	void _do_text_op(const TextOperation &p_op, bool p_reverse);
 
 	//syntax coloring
+	friend class SyntaxHighlighter;
+	SyntaxHighlighter *syntax_highlighter;
 	HashMap<String, Color> keywords;
 	HashMap<String, Color> member_keywords;
+
+	Map<int, HighlighterInfo> _get_line_syntax_highlighting(int p_line);
 
 	Vector<ColorRegion> color_regions;
 
@@ -391,6 +402,9 @@ protected:
 	static void _bind_methods();
 
 public:
+	SyntaxHighlighter *_get_syntax_highlighting();
+	void _set_syntax_highlighting(SyntaxHighlighter *p_syntax_highlighter);
+
 	enum MenuItems {
 		MENU_CUT,
 		MENU_COPY,
@@ -620,5 +634,28 @@ public:
 
 VARIANT_ENUM_CAST(TextEdit::MenuItems);
 VARIANT_ENUM_CAST(TextEdit::SearchFlags);
+
+class SyntaxHighlighter {
+protected:
+	TextEdit *text_editor;
+
+	bool _has_keyword_color(String p_keyword);
+	bool _has_member_color(String p_member);
+
+	Color _get_keyword_color(String p_keyword);
+	Color _get_member_color(String p_member);
+
+public:
+	virtual void _update_cache();
+	virtual Map<int, TextEdit::HighlighterInfo> _get_line_syntax_highlighting(int p_line);
+
+	virtual SyntaxHighlighter *create();
+
+	virtual String get_name();
+	virtual List<String> get_supported_languages();
+
+	void set_text_editor(TextEdit *p_text_editor);
+	TextEdit *get_text_editor();
+};
 
 #endif // TEXT_EDIT_H

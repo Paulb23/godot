@@ -164,6 +164,10 @@ void ScriptTextEditor::_load_theme_settings() {
 	text_edit->add_color_override("search_result_color", search_result_color);
 	text_edit->add_color_override("search_result_border_color", search_result_border_color);
 	text_edit->add_color_override("symbol_color", symbol_color);
+	text_edit->add_color_override("keyword_color", keyword_color);
+	text_edit->add_color_override("string_color", string_color);
+	text_edit->add_color_override("built_in_type_color", basetype_color);
+	text_edit->add_color_override("comment_color", comment_color);
 
 	text_edit->add_constant_override("line_spacing", EDITOR_DEF("text_editor/theme/line_spacing", 4));
 
@@ -573,6 +577,7 @@ void ScriptTextEditor::set_edited_script(const Ref<Script> &p_script) {
 	ERR_FAIL_COND(!script.is_null());
 
 	script = p_script;
+	_set_theme_for_script();
 
 	code_editor->get_text_edit()->set_text(script->get_source_code());
 	code_editor->get_text_edit()->clear_undo_history();
@@ -580,8 +585,6 @@ void ScriptTextEditor::set_edited_script(const Ref<Script> &p_script) {
 
 	emit_signal("name_changed");
 	code_editor->update_line_and_column();
-
-	_set_theme_for_script();
 }
 
 void ScriptTextEditor::_validate_script() {
@@ -1245,11 +1248,26 @@ void ScriptTextEditor::_edit_option(int p_op) {
 	}
 }
 
+void ScriptTextEditor::add_syntax_highlighter(SyntaxHighlighter *p_highlighter) {
+	highlighters[p_highlighter->get_name()] = p_highlighter;
+	highlighter_menu->get_popup()->add_item(p_highlighter->get_name());
+}
+
+void ScriptTextEditor::set_syntax_highlighter(SyntaxHighlighter *p_highlighter) {
+	TextEdit *te = code_editor->get_text_edit();
+	te->_set_syntax_highlighting(p_highlighter);
+}
+
+void ScriptTextEditor::_change_syntax_highlighter(int p_op) {
+	set_syntax_highlighter(highlighters[highlighter_menu->get_popup()->get_item_text(p_op)]);
+}
+
 void ScriptTextEditor::_bind_methods() {
 
 	ClassDB::bind_method("_validate_script", &ScriptTextEditor::_validate_script);
 	ClassDB::bind_method("_load_theme_settings", &ScriptTextEditor::_load_theme_settings);
 	ClassDB::bind_method("_breakpoint_toggled", &ScriptTextEditor::_breakpoint_toggled);
+	ClassDB::bind_method("_change_syntax_highlighter", &ScriptTextEditor::_change_syntax_highlighter);
 	ClassDB::bind_method("_edit_option", &ScriptTextEditor::_edit_option);
 	ClassDB::bind_method("_goto_line", &ScriptTextEditor::_goto_line);
 	ClassDB::bind_method("_lookup_symbol", &ScriptTextEditor::_lookup_symbol);
@@ -1634,6 +1652,14 @@ ScriptTextEditor::ScriptTextEditor() {
 	search_menu->get_popup()->connect("id_pressed", this, "_edit_option");
 
 	edit_hb->add_child(edit_menu);
+
+	highlighters["Standard"] = NULL;
+
+	highlighter_menu = memnew(MenuButton);
+	highlighter_menu->set_text(TTR("Syntax Highlighter"));
+	highlighter_menu->get_popup()->add_item("Standard");
+	highlighter_menu->get_popup()->connect("id_pressed", this, "_change_syntax_highlighter");
+	edit_hb->add_child(highlighter_menu);
 
 	quick_open = memnew(ScriptEditorQuickOpen);
 	add_child(quick_open);
