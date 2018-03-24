@@ -134,6 +134,7 @@ void ScriptTextEditor::_load_theme_settings() {
 	Color search_result_border_color = EDITOR_GET("text_editor/highlighting/search_result_border_color");
 	Color symbol_color = EDITOR_GET("text_editor/highlighting/symbol_color");
 	Color keyword_color = EDITOR_GET("text_editor/highlighting/keyword_color");
+	Color get_node_shortcut_color = EDITOR_GET("text_editor/highlighting/get_node_shortcut_color");
 	Color basetype_color = EDITOR_GET("text_editor/highlighting/base_type_color");
 	Color type_color = EDITOR_GET("text_editor/highlighting/engine_type_color");
 	Color comment_color = EDITOR_GET("text_editor/highlighting/comment_color");
@@ -168,6 +169,7 @@ void ScriptTextEditor::_load_theme_settings() {
 	text_edit->add_color_override("string_color", string_color);
 	text_edit->add_color_override("built_in_type_color", basetype_color);
 	text_edit->add_color_override("comment_color", comment_color);
+	text_edit->add_color_override("get_node_shortcut_color", get_node_shortcut_color);
 
 	text_edit->add_constant_override("line_spacing", EDITOR_DEF("text_editor/theme/line_spacing", 4));
 

@@ -1038,6 +1038,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 	const Color type_color = basetype_color.linear_interpolate(mono_color, dark_theme ? 0.7 : 0.5);
 	const Color comment_color = dim_color;
 	const Color string_color = Color::html(dark_theme ? "#ffd942" : "#ffd118").linear_interpolate(mono_color, dark_theme ? 0.5 : 0.3);
+	const Color get_node_shortcut_color = Color::html("df97ff");
 
 	const Color te_background_color = Color(0, 0, 0, 0);
 	const Color completion_background_color = base_color;
@@ -1091,6 +1092,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 		setting->set_initial_value("text_editor/highlighting/word_highlighted_color", word_highlighted_color, true);
 		setting->set_initial_value("text_editor/highlighting/number_color", number_color, true);
 		setting->set_initial_value("text_editor/highlighting/function_color", function_color, true);
+		setting->set_initial_value("text_editor/highlighting/get_node_shortcut_color", get_node_shortcut_color, true);
 		setting->set_initial_value("text_editor/highlighting/member_variable_color", member_variable_color, true);
 		setting->set_initial_value("text_editor/highlighting/mark_color", mark_color, true);
 		setting->set_initial_value("text_editor/highlighting/breakpoint_color", breakpoint_color, true);
@@ -1122,6 +1124,7 @@ Ref<Theme> create_editor_theme(const Ref<Theme> p_theme) {
 		setting->set_initial_value("text_editor/highlighting/word_highlighted_color", Color(0.8, 0.9, 0.9, 0.15), true);
 		setting->set_initial_value("text_editor/highlighting/number_color", Color::html("EB9532"), true);
 		setting->set_initial_value("text_editor/highlighting/function_color", Color::html("66a2ce"), true);
+		setting->set_initial_value("text_editor/highlighting/get_node_shortcut_color", Color::html("df97ff"), true);
 		setting->set_initial_value("text_editor/highlighting/member_variable_color", Color::html("e64e59"), true);
 		setting->set_initial_value("text_editor/highlighting/mark_color", Color(1.0, 0.4, 0.4, 0.4), true);
 		setting->set_initial_value("text_editor/highlighting/breakpoint_color", Color(0.8, 0.8, 0.4, 0.2), true);

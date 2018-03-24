@@ -48,6 +48,7 @@ private:
 	Color built_in_type_color;
 	Color number_color;
 	Color member_color;
+	Color get_node_shortcut_color;
 
 	int last_token_col;
 	Map<int, TextEdit::HighlighterInfo> color_map;

@@ -573,6 +573,7 @@ void EditorSettings::_load_default_text_editor_theme() {
 	_initial_set("text_editor/highlighting/string_color", Color::html("ef6ebe"));
 	_initial_set("text_editor/highlighting/number_color", Color::html("EB9532"));
 	_initial_set("text_editor/highlighting/symbol_color", Color::html("badfff"));
+	_initial_set("text_editor/highlighting/get_node_shortcut_color", Color::html("df97ff"));
 	_initial_set("text_editor/highlighting/selection_color", Color::html("6ca9c2"));
 	_initial_set("text_editor/highlighting/brace_mismatch_color", Color(1, 0.2, 0.2));
 	_initial_set("text_editor/highlighting/current_line_color", Color(0.3, 0.5, 0.8, 0.15));
@@ -608,6 +609,7 @@ bool EditorSettings::_save_text_editor_theme(String p_file) {
 	cf->set_value(theme_section, "string_color", ((Color)get("text_editor/highlighting/string_color")).to_html());
 	cf->set_value(theme_section, "number_color", ((Color)get("text_editor/highlighting/number_color")).to_html());
 	cf->set_value(theme_section, "symbol_color", ((Color)get("text_editor/highlighting/symbol_color")).to_html());
+	cf->set_value(theme_section, "get_node_shortcut_color", ((Color)get("text_editor/highlighting/get_node_shortcut_color")).to_html());
 	cf->set_value(theme_section, "selection_color", ((Color)get("text_editor/highlighting/selection_color")).to_html());
 	cf->set_value(theme_section, "brace_mismatch_color", ((Color)get("text_editor/highlighting/brace_mismatch_color")).to_html());
 	cf->set_value(theme_section, "current_line_color", ((Color)get("text_editor/highlighting/current_line_color")).to_html());

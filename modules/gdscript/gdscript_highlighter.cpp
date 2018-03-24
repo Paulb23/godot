@@ -185,6 +185,17 @@ Map<int, TextEdit::HighlighterInfo> GDSyntaxHighlighter::_get_line_syntax_highli
 					color = function_color;
 				} else if (last_token == GDScriptTokenizer::TK_PERIOD) {
 					color = member_color;
+				} else if (last_token == GDScriptTokenizer::TK_DOLLAR) {
+					color = get_node_shortcut_color;
+					overide_column = last_token_col - 1;
+
+					// get to the end of the node path
+					tokenizer.advance();
+					GDScriptTokenizer::Token node_token = tokenizer.get_token();
+					while (node_token && (node_token == GDScriptTokenizer::TK_OP_DIV || node_token == GDScriptTokenizer::TK_IDENTIFIER)) {
+						tokenizer.advance();
+						node_token = tokenizer.get_token();
+					}
 				} else {
 					String identifier = tokenizer.get_token_identifier();
 					if (_has_keyword_color(identifier)) {
@@ -317,6 +328,7 @@ void GDSyntaxHighlighter::_update_cache() {
 	built_in_type_color = text_editor->get_color("built_in_type_color");
 	number_color = text_editor->get_color("number_color");
 	member_color = text_editor->get_color("member_variable_color");
+	get_node_shortcut_color = text_editor->get_color("get_node_shortcut_color");
 }
 
 SyntaxHighlighter *GDSyntaxHighlighter::create() {
