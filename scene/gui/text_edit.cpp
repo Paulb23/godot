@@ -145,6 +145,7 @@ void TextEdit::Text::_update_line_cache(int p_line) const {
 
 	text[p_line].region_info.clear();
 
+	int ending_color_region = -1;
 	for (int i = 0; i < len; i++) {
 
 		if (!_is_symbol(str[i]))
@@ -184,6 +185,12 @@ void TextEdit::Text::_update_line_cache(int p_line) const {
 				cri.region = j;
 				text[p_line].region_info[i] = cri;
 				i += lr - 1;
+
+				if (ending_color_region == -1 && !cr.line_only) {
+					ending_color_region = j;
+				} else if (ending_color_region == j) {
+					ending_color_region = -1;
+				}
 				break;
 			}
 
@@ -215,6 +222,7 @@ void TextEdit::Text::_update_line_cache(int p_line) const {
 			}
 		}
 	}
+	text[p_line].ending_color_region = ending_color_region;
 }
 
 const Map<int, TextEdit::Text::ColorRegionInfo> &TextEdit::Text::get_color_region_info(int p_line) const {
@@ -556,6 +564,8 @@ void TextEdit::_notification(int p_what) {
 			}
 		} break;
 		case NOTIFICATION_DRAW: {
+			uint32_t start = OS::get_singleton()->get_ticks_msec();
+
 			if ((!has_focus() && !menu->has_focus()) || !window_has_focus) {
 				draw_caret = false;
 			}
@@ -1338,6 +1348,8 @@ void TextEdit::_notification(int p_what) {
 				OS::get_singleton()->set_ime_position(get_global_position() + cursor_pos + Point2(0, get_row_height()));
 				OS::get_singleton()->set_ime_intermediate_text_callback(_ime_text_callback, this);
 			}
+
+			print_line(itos(OS::get_singleton()->get_ticks_msec() - start));
 		} break;
 		case NOTIFICATION_FOCUS_ENTER: {
 
@@ -3995,6 +4007,27 @@ void TextEdit::_set_syntax_highlighting(SyntaxHighlighter *p_syntax_highlighter)
 	update();
 }
 
+int TextEdit::_get_line_ending_color_region(int p_line) const {
+	if (p_line < 0 || p_line > text.size() - 1) {
+		return -1;
+	}
+	return text.get_line_ending_color_region(p_line);
+}
+
+TextEdit::ColorRegion TextEdit::_get_color_region(int p_region) const {
+	if (p_region < 0 || p_region > color_regions.size()) {
+		return ColorRegion();
+	}
+	return color_regions[p_region];
+}
+
+Map<int, TextEdit::Text::ColorRegionInfo> TextEdit::_get_line_color_region_info(int p_line) const {
+	if (p_line < 0 || p_line > text.size() - 1) {
+		return Map<int, Text::ColorRegionInfo>();
+	}
+	return text.get_color_region_info(p_line);
+}
+
 void TextEdit::clear_colors() {
 
 	keywords.clear();
@@ -4008,6 +4041,14 @@ void TextEdit::add_keyword_color(const String &p_keyword, const Color &p_color) 
 	update();
 }
 
+bool TextEdit::has_keyword_color(String p_keyword) const {
+	return keywords.has(p_keyword);
+}
+
+Color TextEdit::get_keyword_color(String p_keyword) const {
+	return keywords[p_keyword];
+}
+
 void TextEdit::add_color_region(const String &p_begin_key, const String &p_end_key, const Color &p_color, bool p_line_only) {
 
 	color_regions.push_back(ColorRegion(p_begin_key, p_end_key, p_color, p_line_only));
@@ -4018,6 +4059,14 @@ void TextEdit::add_color_region(const String &p_begin_key, const String &p_end_k
 void TextEdit::add_member_keyword(const String &p_keyword, const Color &p_color) {
 	member_keywords[p_keyword] = p_color;
 	update();
+}
+
+bool TextEdit::has_member_color(String p_member) const {
+	return member_keywords.has(p_member);
+}
+
+Color TextEdit::get_member_color(String p_member) const {
+	return member_keywords[p_member];
 }
 
 void TextEdit::clear_member_keywords() {
@@ -5534,6 +5583,8 @@ void TextEdit::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_v_scroll_speed"), &TextEdit::get_v_scroll_speed);
 
 	ClassDB::bind_method(D_METHOD("add_keyword_color", "keyword", "color"), &TextEdit::add_keyword_color);
+	ClassDB::bind_method(D_METHOD("has_keyword_color", "keyword"), &TextEdit::has_keyword_color);
+	ClassDB::bind_method(D_METHOD("get_keyword_color", "keyword"), &TextEdit::get_keyword_color);
 	ClassDB::bind_method(D_METHOD("add_color_region", "begin_key", "end_key", "color", "line_only"), &TextEdit::add_color_region, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("clear_colors"), &TextEdit::clear_colors);
 	ClassDB::bind_method(D_METHOD("menu_option", "option"), &TextEdit::menu_option);
@@ -5726,31 +5777,24 @@ Map<int, TextEdit::HighlighterInfo> TextEdit::_get_line_syntax_highlighting(int 
 
 	int in_region = -1;
 	int deregion = 0;
-
 	for (int i = 0; i < p_line; i++) {
-		const Map<int, TextEdit::Text::ColorRegionInfo> &cri_map = text.get_color_region_info(i);
-		if (in_region >= 0 && color_regions[in_region].line_only) {
+		int ending_color_region = text.get_line_ending_color_region(i);
+		if (in_region == -1) {
+			in_region = ending_color_region;
+		} else if (in_region == ending_color_region) {
 			in_region = -1;
-		}
-		for (const Map<int, TextEdit::Text::ColorRegionInfo>::Element *E = cri_map.front(); E; E = E->next()) {
-			const TextEdit::Text::ColorRegionInfo &cri = E->get();
-			if (in_region == -1) {
-				if (!cri.end) {
-					in_region = cri.region;
-				}
-			} else if (in_region == cri.region && !color_regions[cri.region].line_only) {
-				if (cri.end || color_regions[cri.region].eq) {
+		} else {
+			const Map<int, TextEdit::Text::ColorRegionInfo> &cri_map = text.get_color_region_info(i);
+			for (const Map<int, TextEdit::Text::ColorRegionInfo>::Element *E = cri_map.front(); E; E = E->next()) {
+				const TextEdit::Text::ColorRegionInfo &cri = E->get();
+				if (cri.region == in_region) {
 					in_region = -1;
 				}
 			}
 		}
 	}
 
-	if (in_region >= 0 && color_regions[in_region].line_only) {
-		in_region = -1;
-	}
-
-	const Map<int, TextEdit::Text::ColorRegionInfo> &cri_map = text.get_color_region_info(p_line);
+	const Map<int, TextEdit::Text::ColorRegionInfo> cri_map = text.get_color_region_info(p_line);
 	const String &str = text[p_line];
 	Color prev_color;
 	for (int j = 0; j < str.length(); j++) {
@@ -5923,22 +5967,6 @@ void SyntaxHighlighter::set_text_editor(TextEdit *p_text_editor) {
 
 TextEdit *SyntaxHighlighter::get_text_editor() {
 	return text_editor;
-}
-
-bool SyntaxHighlighter::_has_keyword_color(String p_keyword) {
-	return text_editor->keywords.has(p_keyword);
-}
-
-bool SyntaxHighlighter::_has_member_color(String p_member) {
-	return text_editor->member_keywords.has(p_member);
-}
-
-Color SyntaxHighlighter::_get_keyword_color(String p_keyword) {
-	return text_editor->keywords[p_keyword];
-}
-
-Color SyntaxHighlighter::_get_member_color(String p_member) {
-	return text_editor->member_keywords[p_member];
 }
 
 String SyntaxHighlighter::get_name() {

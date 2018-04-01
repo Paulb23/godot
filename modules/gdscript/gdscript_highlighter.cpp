@@ -48,47 +48,133 @@ Map<int, TextEdit::HighlighterInfo> GDSyntaxHighlighter::_get_line_syntax_highli
 	color_map.clear();
 	last_token_col = 0;
 
-	// check if the current line is a comment so we can return.
-	bool is_comment = false;
-	int search_col = 0;
+	int in_region = -1;
 	for (int i = 0; i < p_line; i++) {
-		String line = text_editor->get_line(i);
-		int col = line.find("\"\"\"", search_col);
-		if (col > -1) {
-			if (col > 0 && line[col - 1] == '\\') {
-				i--;
-				search_col = col + 3;
-				continue;
-			}
-			is_comment = !is_comment;
-			i--;
-			search_col = col + 3;
+		int ending_color_region = text_editor->_get_line_ending_color_region(i);
+		if (in_region == -1) {
+			in_region = ending_color_region;
+		} else if (in_region == ending_color_region) {
+			in_region = -1;
 		} else {
-			search_col = 0;
+			const Map<int, TextEdit::Text::ColorRegionInfo> &cri_map = text_editor->_get_line_color_region_info(i);
+			for (const Map<int, TextEdit::Text::ColorRegionInfo>::Element *E = cri_map.front(); E; E = E->next()) {
+				const TextEdit::Text::ColorRegionInfo &cri = E->get();
+				if (cri.region == in_region) {
+					in_region = -1;
+				}
+			}
 		}
 	}
 
-	if (is_comment) {
+	String line = text_editor->get_line(p_line);
+	const Map<int, TextEdit::Text::ColorRegionInfo> &cri_map = text_editor->_get_line_color_region_info(p_line);
+
+	/*
+	 * If we start in a region move the tokenizer pass it.
+	 */
+	if (in_region > -1) {
+		TextEdit::ColorRegion color_region = text_editor->_get_color_region(in_region);
+
 		TextEdit::HighlighterInfo highlighter_info;
-		highlighter_info.color = comment_color;
+		highlighter_info.color = color_region.color;
 		color_map[0] = highlighter_info;
-		return color_map;
+
+		if (cri_map.size() <= 0) {
+			return color_map;
+		}
+
+		int end_col = -1;
+		for (Map<int, TextEdit::Text::ColorRegionInfo>::Element *E = cri_map.front(); E; E = E->next()) {
+			if (E->get().region == in_region) {
+				end_col = E->key();
+				break;
+			}
+		}
+
+		if (end_col == -1) {
+			return color_map;
+		}
+
+		last_token_col = end_col + color_region.end_key.length();
+		//		while (token && token != GDScriptTokenizer::TK_EOF && token != GDScriptTokenizer::TK_ERROR) {
+		//			if (tokenizer.get_token_column() > last_token_col) {
+		//				break;
+		//			}
+		//			tokenizer.advance();
+		//			last_token = token;
+		//			token = tokenizer.get_token();
+		//		}
+		line = line.substr(end_col + color_region.end_key.length(), line.length());
+		in_region = -1;
 	}
 
-	String line = text_editor->get_line(p_line);
 	GDScriptTokenizer::Token last_token;
 	tokenizer.set_code(line);
 	GDScriptTokenizer::Token token = tokenizer.get_token();
+
 	while (token && token != GDScriptTokenizer::TK_EOF && token != GDScriptTokenizer::TK_ERROR) {
 		Color color = font_color;
+		int token_column = tokenizer.get_token_column();
 		int overide_column = -1;
+
+		int region_col = -1;
+		if (in_region == -1) {
+			if (cri_map.has(token_column)) {
+				region_col = token_column;
+			} else if (cri_map.has(token_column - 1)) {
+				region_col = token_column - 1;
+			} else if (cri_map.has(token_column + 1)) {
+				region_col = token_column + 1;
+			}
+			in_region = (region_col > -1) ? cri_map[region_col].region : -1;
+		}
+
+		if (in_region > -1) {
+			TextEdit::ColorRegion color_region = text_editor->_get_color_region(in_region);
+
+			TextEdit::HighlighterInfo highlighter_info;
+			highlighter_info.color = color_region.color;
+			color_map[token_column] = highlighter_info;
+
+			int end_col = -1;
+			bool found = false;
+			for (Map<int, TextEdit::Text::ColorRegionInfo>::Element *E = cri_map.front(); E; E = E->next()) {
+				if (!found) {
+					if (E->key() == region_col) {
+						found = true;
+					}
+					continue;
+				}
+				if (E->get().region == in_region) {
+					end_col = E->key();
+					break;
+				}
+			}
+
+			if (end_col == -1) {
+				return color_map;
+			}
+
+			last_token_col = end_col + color_region.end_key.length();
+			while (token && token != GDScriptTokenizer::TK_EOF && token != GDScriptTokenizer::TK_ERROR) {
+				if (tokenizer.get_token_column() > last_token_col) {
+					break;
+				}
+				tokenizer.advance();
+				last_token = token;
+				token = tokenizer.get_token();
+			}
+
+			in_region = -1;
+			continue;
+		}
 
 		switch (token) {
 			case GDScriptTokenizer::TK_OP_IN:
 			case GDScriptTokenizer::TK_OP_NOT:
 			case GDScriptTokenizer::TK_OP_OR:
 			case GDScriptTokenizer::TK_OP_AND: {
-				if (_is_symbol(line[tokenizer.get_token_column()])) {
+				if (_is_symbol(line[token_column])) {
 					color = symbol_color;
 				} else {
 					color = keyword_color;
@@ -144,9 +230,9 @@ Map<int, TextEdit::HighlighterInfo> GDSyntaxHighlighter::_get_line_syntax_highli
 				if (tokenizer.get_token_constant().is_num()) {
 					color = number_color;
 
-					int col = tokenizer.get_token_column() - 2;
+					int col = token_column - 2;
 					while (col > -1) {
-						if (!_is_number(line[col]) && !_is_num_symbol(line[col])) {
+						if ((!_is_number(line[col]) && !_is_num_symbol(line[col])) || line[col] == ' ') {
 							break;
 						}
 						col--;
@@ -154,28 +240,7 @@ Map<int, TextEdit::HighlighterInfo> GDSyntaxHighlighter::_get_line_syntax_highli
 					overide_column = col + 1;
 				} else if (tokenizer.get_token_constant().get_type() == Variant::STRING) {
 					color = string_color;
-					overide_column = overide_column = (tokenizer.get_token_column() - 2) - String(tokenizer.get_token_constant()).length();
-
-					// comment?
-					int col = overide_column;
-					while (col > -1) {
-						if (line[col] == '"') {
-							while (col > -1 && line[col] == '"') {
-								col--;
-							}
-							if (line[col + 1] == '"' && line[col + 2] == '"') {
-								if (col - 1 > -1) {
-									if (line[col - 1] == '\\') {
-										break;
-									}
-								}
-								color = comment_color;
-								overide_column = col;
-							}
-							break;
-						}
-						col--;
-					}
+					overide_column = (token_column - 2) - String(tokenizer.get_token_constant()).length();
 				} else if (tokenizer.get_token_constant().get_type() == Variant::BOOL || tokenizer.get_token_constant().get_type() == Variant::NIL) {
 					color = keyword_color;
 				}
@@ -198,10 +263,10 @@ Map<int, TextEdit::HighlighterInfo> GDSyntaxHighlighter::_get_line_syntax_highli
 					}
 				} else {
 					String identifier = tokenizer.get_token_identifier();
-					if (_has_keyword_color(identifier)) {
-						color = _get_keyword_color(identifier);
-					} else if (_has_member_color(identifier)) {
-						color = _get_member_color(identifier);
+					if (text_editor->has_keyword_color(identifier)) {
+						color = text_editor->get_keyword_color(identifier);
+					} else if (text_editor->has_member_color(identifier)) {
+						color = text_editor->get_member_color(identifier);
 					} else {
 						color = font_color;
 					}
@@ -264,33 +329,28 @@ Map<int, TextEdit::HighlighterInfo> GDSyntaxHighlighter::_get_line_syntax_highli
 			} break;
 		}
 
+		//print_line(itos(p_line) + " " + tokenizer.get_token_name(token));
+
 		_push_color(color, overide_column);
 		tokenizer.advance();
 		last_token = token;
 		token = tokenizer.get_token();
 	}
 
-	// check for comments
+	// check ending for comments
 	bool comment = false;
 	if (!line.empty()) {
-		// starting
-		if (!line.strip_edges().begins_with("\\\"\"\"") && line.strip_edges().begins_with("\"\"\"")) {
-			TextEdit::HighlighterInfo highlighter_info;
-			highlighter_info.color = comment_color;
-			color_map[0] = highlighter_info;
-		}
-
-		// ending
 		int token_column = tokenizer.get_token_column();
 		if (token_column > 0) {
-			comment = (line[token_column - 1] == '#');
+			//comment = (line[token_column - 1] == '#');
 			if (!comment && token_column > 3 && token_column < line.size() - 3) {
-				comment = (line[token_column - 2] != '\\' && line[token_column - 1] == '"' && line[token_column] == '"' && line[token_column + 1] == '"');
+				//comment = (line[token_column - 2] != '\\' && line[token_column - 1] == '"' && line[token_column] == '"' && line[token_column + 1] == '"');
 			}
 		}
 	}
 
-	if (comment) {
+	//if (comment) {
+	if (line.length() > tokenizer.get_token_column()) {
 		_push_color(comment_color);
 	}
 	return color_map;
