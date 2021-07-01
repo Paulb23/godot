@@ -984,7 +984,7 @@
 			Sets the [StyleBox] of this [TextEdit].
 		</theme_item>
 		<theme_item name="outline_size" type="int" default="0">
-			The size of the text outline.
+			The tint of text outline of the [CodeEdit].
 		</theme_item>
 		<theme_item name="read_only" type="StyleBox">
 			Sets the [StyleBox] of this [TextEdit] when [member readonly] is enabled.
