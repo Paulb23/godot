@@ -516,7 +516,7 @@ Control::CursorShape CodeEdit::get_cursor_shape(const Point2 &p_pos) const {
 		return CURSOR_POINTING_HAND;
 	}
 
-	if ((code_completion_active && code_completion_rect.has_point(p_pos)) || (is_readonly() && (!is_selecting_enabled() || get_line_count() == 0))) {
+	if ((code_completion_active && code_completion_rect.has_point(p_pos)) || (!is_editable() && (!is_selecting_enabled() || get_line_count() == 0))) {
 		return CURSOR_ARROW;
 	}
 
@@ -593,7 +593,7 @@ void CodeEdit::_handle_unicode_input(const uint32_t p_unicode) {
 }
 
 void CodeEdit::_backspace() {
-	if (is_readonly()) {
+	if (!is_editable()) {
 		return;
 	}
 
@@ -707,7 +707,7 @@ TypedArray<String> CodeEdit::get_auto_indent_prefixes() const {
 }
 
 void CodeEdit::do_indent() {
-	if (is_readonly()) {
+	if (!is_editable()) {
 		return;
 	}
 
@@ -728,7 +728,7 @@ void CodeEdit::do_indent() {
 }
 
 void CodeEdit::indent_lines() {
-	if (is_readonly()) {
+	if (!is_editable()) {
 		return;
 	}
 
@@ -779,7 +779,7 @@ void CodeEdit::indent_lines() {
 }
 
 void CodeEdit::do_unindent() {
-	if (is_readonly()) {
+	if (!is_editable()) {
 		return;
 	}
 
@@ -817,7 +817,7 @@ void CodeEdit::do_unindent() {
 }
 
 void CodeEdit::unindent_lines() {
-	if (is_readonly()) {
+	if (!is_editable()) {
 		return;
 	}
 
@@ -904,7 +904,7 @@ int CodeEdit::_calculate_spaces_till_next_right_indent(int p_column) const {
 }
 
 void CodeEdit::_new_line(bool p_split_current_line, bool p_above) {
-	if (is_readonly()) {
+	if (!is_editable()) {
 		return;
 	}
 
@@ -1832,7 +1832,7 @@ void CodeEdit::set_code_completion_selected_index(int p_index) {
 }
 
 void CodeEdit::confirm_code_completion(bool p_replace) {
-	if (is_readonly() || !code_completion_active) {
+	if (!is_editable() || !code_completion_active) {
 		return;
 	}
 
