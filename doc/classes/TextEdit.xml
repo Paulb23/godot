@@ -55,6 +55,13 @@
 			<description>
 			</description>
 		</method>
+		<method name="adjust_viewport_to_caret">
+			<return type="void">
+			</return>
+			<description>
+				Adjust the viewport so the caret is visible.
+			</description>
+		</method>
 		<method name="backspace">
 			<return type="void">
 			</return>
@@ -146,6 +153,13 @@
 			<description>
 			</description>
 		</method>
+		<method name="get_first_visible_line" qualifiers="const">
+			<return type="int">
+			</return>
+			<description>
+				Returns the first visible line.
+			</description>
+		</method>
 		<method name="get_gutter_count" qualifiers="const">
 			<return type="int">
 			</return>
@@ -183,6 +197,20 @@
 			</argument>
 			<description>
 				Returns the indent level of a specific line.
+			</description>
+		</method>
+		<method name="get_last_full_visible_line" qualifiers="const">
+			<return type="int">
+			</return>
+			<description>
+				Return the last visible line. Use [method get_last_full_visible_line_wrap_index] for the wrap index.
+			</description>
+		</method>
+		<method name="get_last_full_visible_line_wrap_index" qualifiers="const">
+			<return type="int">
+			</return>
+			<description>
+				Returns the last visible wrap index of the last visible line.
 			</description>
 		</method>
 		<method name="get_line" qualifiers="const">
@@ -286,6 +314,13 @@
 				Returns the [PopupMenu] of this [TextEdit]. By default, this menu is displayed when right-clicking on the [TextEdit].
 			</description>
 		</method>
+		<method name="get_minimap_visible_lines" qualifiers="const">
+			<return type="int">
+			</return>
+			<description>
+				Gets the total amount of lines that can be draw on the minimap.
+			</description>
+		</method>
 		<method name="get_opentype_feature" qualifiers="const">
 			<return type="int">
 			</return>
@@ -293,6 +328,24 @@
 			</argument>
 			<description>
 				Returns OpenType feature [code]tag[/code].
+			</description>
+		</method>
+		<method name="get_scroll_pos_for_line" qualifiers="const">
+			<return type="float">
+			</return>
+			<argument index="0" name="line" type="int">
+			</argument>
+			<argument index="1" name="wrap_index" type="int" default="0">
+			</argument>
+			<description>
+				Gets the scroll position for [code]wrap_index[/code] of [code]line[/code].
+			</description>
+		</method>
+		<method name="get_selected_text" qualifiers="const">
+			<return type="String">
+			</return>
+			<description>
+				 Returns the text inside the selection.
 			</description>
 		</method>
 		<method name="get_selection_column" qualifiers="const">
@@ -327,13 +380,6 @@
 			<description>
 			</description>
 		</method>
-		<method name="get_selection_text" qualifiers="const">
-			<return type="String">
-			</return>
-			<description>
-				Returns the text inside the selection.
-			</description>
-		</method>
 		<method name="get_selection_to_column" qualifiers="const">
 			<return type="int">
 			</return>
@@ -359,6 +405,13 @@
 			<return type="int">
 			</return>
 			<description>
+			</description>
+		</method>
+		<method name="get_total_visible_line_count" qualifiers="const">
+			<return type="int">
+			</return>
+			<description>
+				Gets the total amount of lines that could be draw.
 			</description>
 		</method>
 		<method name="get_visible_line_count" qualifiers="const">
@@ -672,6 +725,39 @@
 				Sets the text for a specific line.
 			</description>
 		</method>
+		<method name="set_line_as_center_visible">
+			<return type="void">
+			</return>
+			<argument index="0" name="line" type="int">
+			</argument>
+			<argument index="1" name="wrap_index" type="int" default="0">
+			</argument>
+			<description>
+				Positions the [code]wrap_index[/code] of [code]line[/code] at the center of the viewport.
+			</description>
+		</method>
+		<method name="set_line_as_first_visible">
+			<return type="void">
+			</return>
+			<argument index="0" name="line" type="int">
+			</argument>
+			<argument index="1" name="wrap_index" type="int" default="0">
+			</argument>
+			<description>
+				Positions the [code]wrap_index[/code] of [code]line[/code] at the top of the viewport.
+			</description>
+		</method>
+		<method name="set_line_as_last_visible">
+			<return type="void">
+			</return>
+			<argument index="0" name="line" type="int">
+			</argument>
+			<argument index="1" name="wrap_index" type="int" default="0">
+			</argument>
+			<description>
+				Positions the [code]wrap_index[/code] of [code]line[/code] at the bottom of the viewport.
+			</description>
+		</method>
 		<method name="set_line_background_color">
 			<return type="void">
 			</return>
@@ -847,6 +933,9 @@
 		</member>
 		<member name="scroll_horizontal" type="int" setter="set_h_scroll" getter="get_h_scroll" default="0">
 			If there is a horizontal scrollbar, this determines the current horizontal scroll value in pixels.
+		</member>
+		<member name="scroll_past_end_of_file" type="bool" setter="set_scroll_past_end_of_file_enabled" getter="is_scroll_past_end_of_file_enabled" default="false">
+			Allow scrolling past the last line into "virtual" space.
 		</member>
 		<member name="scroll_vertical" type="float" setter="set_v_scroll" getter="get_v_scroll" default="0.0">
 			If there is a vertical scrollbar, this determines the current vertical scroll value in line numbers, starting at 0 for the top line.
