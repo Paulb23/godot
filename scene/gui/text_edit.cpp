@@ -2436,6 +2436,7 @@ void TextEdit::clear() {
 	setting_text = true;
 	_clear();
 	setting_text = false;
+	emit_signal("text_set");
 }
 
 void TextEdit::_clear() {
@@ -2473,6 +2474,7 @@ void TextEdit::set_text(const String &p_text) {
 
 	update();
 	setting_text = false;
+	emit_signal("text_set");
 }
 
 String TextEdit::get_text() {
@@ -4694,6 +4696,7 @@ void TextEdit::_bind_methods() {
 
 	/* Signals */
 	/* Core. */
+	ADD_SIGNAL(MethodInfo("text_set"));
 	ADD_SIGNAL(MethodInfo("text_changed"));
 	ADD_SIGNAL(MethodInfo("lines_edited_from", PropertyInfo(Variant::INT, "from_line"), PropertyInfo(Variant::INT, "to_line")));
 
@@ -4860,7 +4863,7 @@ void TextEdit::_backspace() {
 	int prev_line = cc ? cl : cl - 1;
 	int prev_column = cc ? (cc - 1) : (text[cl - 1].length());
 
-	merge_gutters(cl, prev_line);
+	merge_gutters(prev_line, cl);
 
 	if (_is_line_hidden(cl)) {
 		_set_line_as_hidden(prev_line, true);
